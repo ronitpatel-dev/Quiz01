@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Interactive Quiz Platform</title>
+  <!-- Icons & Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" />
+  <!-- jsPDF for certificate -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <style>
+    :root{
+      --bg: #0b0d12;
+      --card: #11141b;
+      --muted: #8992a3;
+      --fg: #e8ecf3;
+      --pri: #6aa6ff;
+      --pri-600:#3b82f6;
+      --good:#10b981;
+      --bad:#ef4444;
+      --warn:#f59e0b;
+      --ring: rgba(106,166,255,.35);
+    }
+    *{box-sizing:border-box}
+    html,body{height:100%}
+    body{
+      margin:0;
+      font-family:Inter,system-ui,Segoe UI,Roboto,Arial,Helvetica,sans-serif;
+      background:linear-gradient(180deg,#0b0d12 0%, #0f1320 100%);
+      color:var(--fg);
+      -webkit-font-smoothing:antialiased;
+    }
+    .container{max-width:1100px;margin:auto;padding:24px}
+    header{
+      position:sticky;top:0;z-index:10;backdrop-filter: blur(8px);
+      background: rgba(11,13,18,.6); border-bottom:1px solid #1b2332
+    }
+    .nav{display:flex;align-items:center;gap:16px;justify-content:space-between;padding:12px 24px}
+    .brand{display:flex;align-items:center;gap:10px;font-weight:700}
+    .brand i{color:var(--pri)}
+    .nav-actions{display:flex;align-items:center;gap:10px}
+    .btn{
+      appearance:none;border:1px solid #233049;background:#141826;color:var(--fg);
+      padding:10px 14px;border-radius:14px;cursor:pointer;font-weight:600;letter-spacing:.2px
+    }
+    .btn:hover{border-color:#2f3e57}
+    .btn.pri{background:linear-gradient(180deg,#1a60ff,#1247c9);border-color:#2b56f1}
+    .btn.ghost{background:transparent}
+
+    .grid{display:grid;gap:18px}
+    .grid.cols-3{grid-template-columns:repeat(3,minmax(0,1fr))}
+    @media(max-width:900px){.grid.cols-3{grid-template-columns:1fr 1fr}}
+    @media(max-width:640px){.grid.cols-3{grid-template-columns:1fr}}
+
+    .card{
+      background:linear-gradient(180deg,#11141b,#0e121a);
+      border:1px solid #1a2233; border-radius:18px; padding:18px; position:relative;
+      box-shadow: 0 10px 30px rgba(0,0,0,.25)
+    }
+    .card:hover{border-color:#263348}
+    .tag{display:inline-flex;align-items:center;gap:6px;padding:6px 10px;border:1px solid #233049;border-radius:999px;color:var(--muted);font-size:12px}
+
+    .hero{display:grid;gap:16px;grid-template-columns:1.35fr .65fr;align-items:center}
+    .hero h1{font-size:36px;margin:0}
+    .hero p{color:var(--muted)}
+    @media(max-width:900px){.hero{grid-template-columns:1fr}}
+
+    .list{display:flex;flex-direction:column;gap:10px}
+    .list .li{display:flex;gap:10px;align-items:center;color:var(--muted)}
+
+    .hidden{display:none !important}
+    .muted{color:var(--muted)}
+    .center{text-align:center}
+
+    .quiz-layout{display:grid;grid-template-columns: 1.2fr .8fr; gap:18px}
+    @media(max-width:900px){.quiz-layout{grid-template-columns:1fr}}
+
+    .question{font-size:18px;font-weight:600}
+    .choices{display:grid;gap:10px;margin-top:12px}
+    .choice{
+      display:flex;align-items:center;gap:10px;padding:12px;border:1px solid #223048;border-radius:14px;cursor:pointer;
+      transition:.15s;
+    }
+    .choice input{display:none}
+    .choice:hover{border-color:#2d4060;background:#0f1420}
+    .choice.selected{outline:2px solid var(--ring); background:#0f1624}
+    .choice.correct{border-color:#1f7a55;background:rgba(16,185,129,.08)}
+    .choice.wrong{border-color:#6e2733;background:rgba(239,68,68,.08)}
+
+    .progress{height:10px;background:#121720;border:1px solid #1b2638;border-radius:999px;overflow:hidden}
+    .progress > span{display:block;height:100%;background:linear-gradient(90deg,#2b7cff,#22d3ee);width:0%}
+
+    .timer{font-variant-numeric:tabular-nums;font-weight:700}
+    .stat{display:flex;align-items:center;justify-content:space-between;border-top:1px dashed #253046;padding-top:12px;margin-top:12px;color:var(--muted)}
+
+    .pill{display:inline-flex;align-items:center;gap:8px;padding:8px 12px;border-radius:999px;border:1px solid #223048}
+
+    /* table */
+    table{width:100%;border-collapse:collapse}
+    th,td{padding:10px;border-bottom:1px solid #1c2536}
+    th{color:#a8b1c2;text-align:left}
+
+    .kpi{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+    @media(max-width:640px){.kpi{grid-template-columns:1fr}}
+
+    .kbd{font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; font-size:12px; background:#0c1220;border:1px solid #1f2a40; padding:2px 6px; border-radius:6px}
+
+    .foot{color:#6b768a;font-size:12px;margin-top:24px;text-align:center}
+  </style>
+</head>
+<body>
+  <header>
+    <div class="nav container">
+      <div class="brand"><i class="fa-solid fa-graduation-cap"></i> Quiz Platform</div>
+      <div class="nav-actions">
+        <button class="btn ghost" id="btn-leaderboard"><i class="fa-solid fa-trophy"></i> Leaderboard</button>
+        <button class="btn ghost" id="btn-about"><i class="fa-regular fa-circle-question"></i> About</button>
+        <button class="btn" id="toggle-theme" title="Toggle theme"><i class="fa-solid fa-moon"></i></button>
+      </div>
+    </div>
+  </header>
+
+  <!-- HOME -->
+  <main id="screen-home" class="container">
+    <section class="hero">
+      <div>
+        <span class="tag"><i class="fa-solid fa-bolt"></i> Frontend Only • LocalStorage</span>
+        <h1>Test your knowledge with beautiful, fast quizzes.</h1>
+        <p>Select a category to begin. You’ll get instant results, review answers, and can even download a certificate if you pass.</p>
+        <div class="list">
+          <div class="li"><i class="fa-solid fa-mobile-screen-button"></i> Fully responsive
+          </div>
+          <div class="li"><i class="fa-solid fa-stopwatch"></i> Timer & progress bar</div>
+          <div class="li"><i class="fa-solid fa-trophy"></i> Leaderboard saved in your browser</div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="grid cols-3" id="category-grid"></div>
+      </div>
+    </section>
+
+    <div class="foot">Tip: Press <span class="kbd">N</span> for next, <span class="kbd">P</span> for previous during a quiz.</div>
+  </main>
+
+  <!-- QUIZ -->
+  <main id="screen-quiz" class="container hidden">
+    <div class="quiz-layout">
+      <section class="card" id="quiz-pane">
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:10px">
+          <div class="pill" id="quiz-meta"><i class="fa-solid fa-layer-group"></i><span>—</span></div>
+          <div class="pill"><i class="fa-solid fa-stopwatch"></i> <span class="timer" id="time">00:00</span></div>
+        </div>
+        <div class="progress"><span id="progress-bar"></span></div>
+        <div style="margin-top:16px" id="qa">
+          <div class="muted" id="q-index">Question 1 of N</div>
+          <div class="question" id="question">—</div>
+          <div class="choices" id="choices"></div>
+        </div>
+        <div class="stat">
+          <div id="status"></div>
+          <div style="display:flex;gap:8px">
+            <button class="btn ghost" id="prev">← Prev</button>
+            <button class="btn pri" id="next">Next →</button>
+            <button class="btn" id="submit" title="Submit quiz"><i class="fa-solid fa-check"></i> Submit</button>
+          </div>
+        </div>
+      </section>
+      <aside class="card">
+        <h3 style="margin:4px 0 10px">Questions Map</h3>
+        <div id="map" class="grid cols-3"></div>
+        <hr style="border-color:#1b2638;margin:14px 0">
+        <button class="btn ghost" id="restart"><i class="fa-solid fa-rotate-right"></i> Restart</button>
+        <button class="btn" id="exit"><i class="fa-solid fa-house"></i> Exit</button>
+      </aside>
+    </div>
+  </main>
+
+  <!-- RESULT -->
+  <main id="screen-result" class="container hidden">
+    <section class="card">
+      <div class="kpi">
+        <div class="card">
+          <div class="muted">Your Score</div>
+          <h2 id="score-h">—</h2>
+          <div id="grade" class="tag"><i class="fa-solid fa-star"></i> —</div>
+        </div>
+        <div class="card">
+          <div class="muted">Accuracy</div>
+          <h2 id="accuracy">—</h2>
+          <div class="muted" id="time-used">—</div>
+        </div>
+        <div class="card">
+          <div class="muted">Summary</div>
+          <div id="summary">—</div>
+        </div>
+      </div>
+      <div style="margin:12px 0 4px"><strong>Review</strong></div>
+      <div id="review"></div>
+      <div class="stat">
+        <div class="muted">Want to try again or share your score?</div>
+        <div style="display:flex;gap:8px">
+          <button class="btn pri" id="btn-restart-from-result">Restart Quiz</button>
+          <button class="btn" id="btn-home-from-result">Home</button>
+          <button class="btn" id="btn-certificate" title="Download certificate"><i class="fa-solid fa-file-pdf"></i> Certificate</button>
+        </div>
+      </div>
+    </section>
+
+    <section class="card" id="leaderboard-card">
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <h3 style="margin:0">Leaderboard</h3>
+        <span class="muted">Saved locally on this device</span>
+      </div>
+      <table id="leaderboard"><thead><tr><th>#</th><th>Name</th><th>Quiz</th><th>Score</th><th>Date</th></tr></thead><tbody></tbody></table>
+    </section>
+  </main>
+
+  <!-- LEADERBOARD / ABOUT (Standalone screens) -->
+  <main id="screen-leaderboard" class="container hidden">
+    <section class="card">
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <h2 style="margin:0">Leaderboard</h2>
+        <button class="btn" onclick="go('home')">Back</button>
+      </div>
+      <table id="leaderboard2"><thead><tr><th>#</th><th>Name</th><th>Quiz</th><th>Score</th><th>Date</th></tr></thead><tbody></tbody></table>
+    </section>
+  </main>
+
+  <main id="screen-about" class="container hidden">
+    <section class="card">
+      <h2>About this project</h2>
+      <p class="muted">Pure frontend quiz platform built with HTML, CSS, and JavaScript. No backend—scores are stored using <code>localStorage</code>. Includes timer, progress, review, leaderboard, and certificate generation.</p>
+      <ul>
+        <li>Press <span class="kbd">N</span> / <span class="kbd">P</span> for navigation during a quiz</li>
+        <li>Answers are auto-saved until you submit or restart</li>
+        <li>Pass mark is <strong>60%</strong> for certificate</li>
+      </ul>
+      <button class="btn" onclick="go('home')">Back</button>
+    </section>
+  </main>
+
+  <script src="script.js"></script>
+</body>
+</html>
